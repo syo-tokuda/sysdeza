@@ -3,7 +3,7 @@ bbbbbbbbbbbbbb
 row_list = []
 colum_list = []
 count = -1
-  
+  ccccccccccccccccc
 with open('C:\R\TEN\labelTEN\Alldata.csv', 'r') as f:
     reader = csv.reader(f)
     #for line in reader:
