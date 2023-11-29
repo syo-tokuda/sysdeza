@@ -25,3 +25,6 @@ with open('C:\R\TEN\labelTEN\Alldata.csv', 'r') as f:
 
 #print(colum_list)
 print(row[4])
+
+
+printf("aaa")
