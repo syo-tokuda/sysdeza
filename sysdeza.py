@@ -71,9 +71,12 @@ def salt_calculation():
 
 def display(moisture_data,salt_content):
 #ディスプレイに現在の水分量moisture_dataと塩分量salt_content，塩分基準量（35g）からsalt_contentを引いた残り投入可能な塩分量を表示する。
+	for char in text:
+        	lcd_send(bus, ord(char), 1)
 
-def LED_flash():
+def LED_flash(moisture_judge,salt_content):
 #moisture_judgeの値から適した水分管理用LEDを点灯させる。また，salt_contentが塩分基準量（35g）を超えているか判断し，超えていれば塩分管理用LEDを点灯させる。
+	if(moisture_judge < 45):
 
 def salt_reset():
 	#塩分量リセットボタンが押されているかを判断し，押されていればsalt_content変数に’0’を代入，temperature_judge_1変数とtemperature_judge_2変数に’0’を代入する。
