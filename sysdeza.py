@@ -128,6 +128,7 @@ def temperature_judgement ():
 def barcode_read():
 	#バーコードリーダーでバーコードを読み取り，読み取れた場合はCSVファイルのデータベース内のコードとの照合を行う。そして商品の塩分量を確認してsalt_calculation関数を実行する。バーコードリーダーと通信できていればbarcode_connect変数へ’真’を，できていなければ’偽’を代入する。バーコードリーダーで読み取ったコードがCSVファイルのデータベースにある場合はbarcode_collation変数へ’真’を，できていなければ’偽’を代入する。
     global barcode_collation
+    barcode_collation = True
     barcode = None
     def myinput(st):
         nonlocal barcode
@@ -142,7 +143,6 @@ def barcode_read():
         salt_data = -1
     else :
         salt_data = 0 #salt_dataは読み取った塩分量
-        barcode_collation = True
         with open('barcode.csv','r') as f :
             reader = csv.reader(f)
             try :
