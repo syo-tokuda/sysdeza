@@ -19,11 +19,17 @@ temperature_judge_2 = 0       #土壌温度センサの値から判断した，�
 transmit_time = 0                                                               #水分の通知送信時間を保存する変数。初期値は’0’。
 
 automatic = False            #自動攪拌機能がONかOFFかを保存する変数。初期値は’偽’
+
 Arduino_connect = False      #Arduinoと通信できたかを保存する変数。初期値は’偽’。
+before_Arduino_connect = False                                                  #Arduino_connectの前回の状態を保存する変数。初期値は’偽’。
 moisture_connect = False     #土壌水分センサの値が読めたかを保存する変数。初期値は’偽’。
+before_moisture_connect = False                                                  #moisture_connectの前回の状態を保存する変数。初期値は’偽’。
 temperature_connect = False  #土壌温度センサの値が読めたかを保存する変数。初期値は’偽’。
+before_temperature_connect = False                                                  #temperature_connectの前回の状態を保存する変数。初期値は’偽’。
 barcode_connect = False      #バーコードリーダーと通信できたかを保存する変数。初期値は’偽’。
-barcode_collation = True    #バーコードリーダーで読み取ったコードがデータベースにあるかを保存する変数。初期値は’真’。
+before_barcode_connect = False                                                  #barcode_connectの前回の状態を保存する変数。初期値は’偽’。
+barcode_collation = True     #バーコードリーダーで読み取ったコードがデータベースにあるかを保存する変数。初期値は’真’。
+barcode_error = True                                                            #バーコードの読み取りエラーを保存する変数。初期値は’真’。
 
 start_button = 20 #変数追加　ピン番号は変更要！
 stop_button = 21
@@ -38,7 +44,7 @@ LCD_addr = 0x3e
 Arduino_addr = 0x04
 
 i2c=smbus.SMBus(1)
-ACCESS_TOKEN = "XXXXXXXXXX"
+ACCESS_TOKEN = "w6afHKxOdcZdub77XWlUgKYVvjgUnVzLiSvuZm6b5iA"
 headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
 GPIO.setup(start_button, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
@@ -100,8 +106,6 @@ def Arduino_receive():
 def moisture_judgement():
 	#moisture_data変数の値から土の水分が少ないか，適しているか，多いかを判断してmoisture_judge変数に代入する。水分が少ない（45%未満）と’0’，適切（45%以上55%未満）だと’1’，多い（55%以上）と’2’を代入する。
     global moisture_judge
-    global before_moisture_judge
-    before_moisture_judge = moisture_judge
     if(moisture_data < 45):
         moisture_judge = 0
     elif(moisture_data >= 45 and moisture_data < 55):
@@ -128,7 +132,9 @@ def temperature_judgement ():
 def barcode_read():
 	#バーコードリーダーでバーコードを読み取り，読み取れた場合はCSVファイルのデータベース内のコードとの照合を行う。そして商品の塩分量を確認してsalt_calculation関数を実行する。バーコードリーダーと通信できていればbarcode_connect変数へ’真’を，できていなければ’偽’を代入する。バーコードリーダーで読み取ったコードがCSVファイルのデータベースにある場合はbarcode_collation変数へ’真’を，できていなければ’偽’を代入する。
     global barcode_collation
+    global barcode_connect
     barcode_collation = True
+    barcode_error  = True
     barcode = None
     def myinput(st):
         nonlocal barcode
@@ -142,20 +148,21 @@ def barcode_read():
         barcode = None
         salt_data = -1
     else :
+        barcode_connect = True
         salt_data = 0 #salt_dataは読み取った塩分量
         with open('barcode.csv','r') as f :
             reader = csv.reader(f)
             try :
                 if int(barcode) < 1000000000000 :
-                    print("ERROR")
+                    barcode_error = False
                 else :
                     for csv_list in reader :
                         if int(barcode) == int(csv_list[0])  :
                             saltdata = csv_list[1]
-                    if salt_data > 0 :
+                    if salt_data <= 0 :
                         barcode_collation = False
             except :
-                print("ERROR")
+                barcode_error = False
     return salt_data
 
 
@@ -191,16 +198,29 @@ def display():
 def LED_flash():
 	#moisture_judgeの値から適した水分管理用LEDを点灯させる。また，salt_contentが塩分基準量（35g）を超えているか判断し，超えていれば塩分管理用LEDを点灯させる。
 	if(moisture_judge < 45):
-		GPIO.output(25,1)	#赤点灯
+		GPIO.output(low_moisture_LED, GPIO.HIGH)	#赤点灯
 	elif(moisture_judge >= 45 and moisture_judge < 55):
-		GPIO.output(25,0)	#赤消灯
-		GPIO.output(26,0)	#白消灯
+		GPIO.output(low_moisture_LED, GPIO.LOW)	#赤消灯
+		GPIO.output(high_moisture_LED, GPIO.LOW)	#白消灯
 	elif(moisture_judge >= 55):
-		GPIO.output(26,1)	#白点灯
+		GPIO.output(high_moisture_LED, GPIO.HIGH)	#白点灯
 	if(salt_content > 35):
-		GPIO.output(24,1)	#緑点灯
+		GPIO.output(salt_LED, GPIO.HIGH)	#緑点灯
 	else:
-		GPIO.output(24,0)	#緑消灯
+		GPIO.output(salt_LED, GPIO.LOW)	#緑消灯
+	
+	if(barcode_collation == False):
+		for i in range(5):
+			GPIO.output(salt_LED, GPIO.HIGH)	#緑消灯
+			time.sleep(0.5)
+			GPIO.output(salt_LED, GPIO.LOW)	#緑消灯
+			time.sleep(0.5)
+	if(barcode_error == False):
+		for i in range(3):
+			GPIO.output(salt_LED, GPIO.HIGH)	#緑消灯
+			time.sleep(0.5)
+			GPIO.output(salt_LED, GPIO.LOW)	#緑消灯
+			time.sleep(0.5)
 	
 
 def salt_reset():
@@ -277,6 +297,7 @@ def agitation():
 def transmit_judgement():
 	#利用者の端末に通知をするかどうかを判断し，通知する場合はその内容を決定してtransmit関数で通知する。int moisture_judge変数を確認して，前回と値が変わっていれば通知をする。また，通知後3時間経過しても値が’0‘または’2’の場合は同様の通知をする。加えてtemperature_judge_1変数とtemperature_judge_2変数がともに’2’になった際も通知をする。
 	global transmit_time
+	global before_moisture_judge
 	if(not(moisture_judge == before_moisture_judge)):
 		if(moisture_judge == 0):
 			transmit(1)
@@ -285,6 +306,7 @@ def transmit_judgement():
 		else:
 			transmit(2)
 		transmit_time = time.time()
+	before_moisture_judge = moisture_judge
 	
 	if((time.time() - transmit_time) >= 10800):
 		if(moisture_judge == 0):
@@ -300,16 +322,22 @@ def transmit_judgement():
 
 def error_check():
 	#Arduino_connect変数，moisture_connect変数，temperature_connect変数，barcode_connect変数，barcode_collation変数を確認し，値が’偽’に変わっている変数があればtransmit関数でエラーメッセージを利用者の端末に通知する。
-	if(Arduino_connect == False):
+	if(Arduino_connect == False and before_Arduino_connect == True):
 		transmit(5)
-	if(moisture_connect == False):
+	before_Arduino_connect = Arduino_connect
+	if(moisture_connect == False and before_moisture_connect == True):
 		transmit(6)
-	if(temperature_connect == False):
+	before_moisture_connect = moisture_connect
+	if(temperature_connect == False and before_temperature_connect == True):
 		transmit(7)
-	if(barcode_connect == False):
+	before_temperature_connect = temperature_connect
+	if(barcode_connect == False and before_barcode_connect == True):
 		transmit(8)
+	before_barcode_connect = barcode_connect
 	if(barcode_collation == False):
 		transmit(9)
+	if(barcode_error == False):
+		transmit(10)
 
 
 def transmit(transmit_code):
@@ -334,6 +362,8 @@ def transmit(transmit_code):
             data = {"message": "バーコードリーダーと通信ができません"}
         case 9:
             data = {"message": "読み取ったバーコードがデータベースにありません"}
+        case 10:
+            data = {"message": "バーコードが正常に読み込めませんでした"}
     
     if not transmit_code == 0 :
         requests.post(
@@ -344,4 +374,13 @@ def transmit(transmit_code):
 
 
 while True : #メイン処理
-	
+    Arduino_receive()
+    moisture_judgement()
+    temperature_judgement()
+    salt_calculation()
+    display()
+    LED_flash()
+    salt_reset()
+    mode_button_check()
+    transmit_judgement()
+    error_check()
