@@ -6,7 +6,7 @@ import datetime
 import schedule
 import threading
 import csv
-import pyautogui as pgui
+import evdev
 import RPi.GPIO as GPIO
 
 moisture_data = 0             #土壌水分センサの値を保存する変数。初期値は’0’。
@@ -29,7 +29,7 @@ before_temperature_connect = False                                              
 barcode_connect = False      #バーコードリーダーと通信できたかを保存する変数。初期値は’偽’。
 before_barcode_connect = False                                                  #barcode_connectの前回の状態を保存する変数。初期値は’偽’。
 barcode_collation = True     #バーコードリーダーで読み取ったコードがデータベースにあるかを保存する変数。初期値は’真’。
-barcode_error = True                                                            #バーコードの読み取りエラーを保存する変数。初期値は’真’。
+# barcode_error = True                                                            #バーコードの読み取りエラーを保存する変数。初期値は’真’。
 
 start_button = 20 #変数追加　ピン番号は変更要！
 stop_button = 21
@@ -43,8 +43,12 @@ step = 8
 LCD_addr = 0x3e
 Arduino_addr = 0x04
 
+device = evdev.InputDevice('/dev/input/event7') #バーコードリーダー
+barcode = [0,0,0,0,0,0,0,0,0,0,0,0,0]
+barcode_id = 0
+
 i2c=smbus.SMBus(1)
-ACCESS_TOKEN = "w6afHKxOdcZdub77XWlUgKYVvjgUnVzLiSvuZm6b5iA"
+ACCESS_TOKEN = "w6afHKxOdcZdub77XWlUgKYVvjgUnVzLiSvuZm6b5iA" #LINEへの通知
 headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
 GPIO.setup(start_button, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
@@ -76,7 +80,6 @@ i2c.write_byte_data(LCD_addr, 0x00, 0x01)
 time.sleep(0.01)
 i2c.write_byte_data(LCD_addr, 0x00, 0x0f)
 time.sleep(0.01)
-
 
 def Arduino_receive():
 	#Arduinoと通信をして土壌水分センサと土壌温度センサの値，それぞれのセンサの値が読めたかどうかのデータを受け取る。Raspberry PiとArduinoの通信にはI2Cを用いる。土壌水分センサの値をmoisture_data変数に，土壌温度センサの値をtemperature_data変数に保存する。土壌水分センサの値が読めればmoisture_connect変数へ’真’を，読めなければ’偽’を代入する。土壌温度センサの値が読めればtemperature_connect変数へ’真’を，読めなければ’偽’を代入する。Arduinoと通信できればArduino_connect変数へ’真’を，できなければ’偽’を代入する。
@@ -133,47 +136,58 @@ def barcode_read():
 	#バーコードリーダーでバーコードを読み取り，読み取れた場合はCSVファイルのデータベース内のコードとの照合を行う。そして商品の塩分量を確認してsalt_calculation関数を実行する。バーコードリーダーと通信できていればbarcode_connect変数へ’真’を，できていなければ’偽’を代入する。バーコードリーダーで読み取ったコードがCSVファイルのデータベースにある場合はbarcode_collation変数へ’真’を，できていなければ’偽’を代入する。
     global barcode_collation
     global barcode_connect
+    barcode_connect = True
     barcode_collation = True
-    barcode_error  = True
-    barcode = None
-    def myinput(st):
-        nonlocal barcode
-        barcode = input(st)
-    t = threading.Thread(target=myinput, args=("",))
-    t.setDaemon(True)
-    t.start()
-    t.join(timeout = 0.1)
-    if barcode is None:
-        pgui.typewrite('\n')
-        barcode = None
-        salt_data = -1
-    else :
-        barcode_connect = True
-        salt_data = 0 #salt_dataは読み取った塩分量
-        with open('barcode.csv','r') as f :
-            reader = csv.reader(f)
-            try :
-                if int(barcode) < 1000000000000 :
-                    barcode_error = False
-                else :
+    # barcode_error  = True
+    
+    global barcode
+    global barcode_id
+    for event in device.async_read_loop():
+        if event.type == evdev.ecodes.EV_KEY and event.value == 0:
+            if event.code == 11 :
+                barcode[barcode_id] = 0
+            if event.code == 2 :
+                barcode[barcode_id] = 1
+            if event.code == 3 :
+                barcode[barcode_id] = 2
+            if event.code == 4 :
+                barcode[barcode_id] = 3
+            if event.code == 5 :
+                barcode[barcode_id] = 4
+            if event.code == 6 :
+                barcode[barcode_id] = 5
+            if event.code == 7 :
+                barcode[barcode_id] = 6
+            if event.code == 8 :
+                barcode[barcode_id] = 7
+            if event.code == 9 :
+                barcode[barcode_id] = 8
+            if event.code == 10 :
+                barcode[barcode_id] = 9
+            barcode_id += 1
+            if event.code == 28 :
+                barcode_sum = 0
+                for i in range(13) :
+                    barcode_sum += barcode[i]*10**(12-i)
+                barcode_id = 0
+                salt_data = 0
+                with open('barcode.csv','r') as f :
+                    reader = csv.reader(f)
                     for csv_list in reader :
-                        if int(barcode) == int(csv_list[0])  :
-                            saltdata = csv_list[1]
+                        if int(barcode_sum) == int(csv_list[0])  :
+                            salt_data = csv_list[1]
+                            salt_calculation(salt_data)
                     if salt_data <= 0 :
                         barcode_collation = False
-            except :
-                barcode_error = False
-    return salt_data
 
 
-def salt_calculation():
+def salt_calculation(salt):
 	#barcode_read関数で読み取った商品の塩分量をsalt_content変数に加算する。
 	# int salt_data：barcode_read関数で読み取った商品の塩分量
     global salt_content
-    salt = barcode_read()
     if salt > 0 :
         salt_content = salt_content + salt
-	
+
 
 def display():
 	#ディスプレイに現在の水分量moisture_dataと塩分量salt_content，塩分基準量（35g）からsalt_contentを引いた残り投入可能な塩分量を表示する。
@@ -215,12 +229,12 @@ def LED_flash():
 			time.sleep(0.5)
 			GPIO.output(salt_LED, GPIO.LOW)	#緑消灯
 			time.sleep(0.5)
-	if(barcode_error == False):
-		for i in range(3):
-			GPIO.output(salt_LED, GPIO.HIGH)	#緑消灯
-			time.sleep(0.5)
-			GPIO.output(salt_LED, GPIO.LOW)	#緑消灯
-			time.sleep(0.5)
+	# if(barcode_error == False):
+	# 	for i in range(3):
+	# 		GPIO.output(salt_LED, GPIO.HIGH)	#緑消灯
+	# 		time.sleep(0.5)
+	# 		GPIO.output(salt_LED, GPIO.LOW)	#緑消灯
+	# 		time.sleep(0.5)
 	
 
 def salt_reset():
@@ -336,8 +350,8 @@ def error_check():
 	before_barcode_connect = barcode_connect
 	if(barcode_collation == False):
 		transmit(9)
-	if(barcode_error == False):
-		transmit(10)
+	# if(barcode_error == False):
+	# 	transmit(10)
 
 
 def transmit(transmit_code):
@@ -362,8 +376,8 @@ def transmit(transmit_code):
             data = {"message": "バーコードリーダーと通信ができません"}
         case 9:
             data = {"message": "読み取ったバーコードがデータベースにありません"}
-        case 10:
-            data = {"message": "バーコードが正常に読み込めませんでした"}
+        # case 10:
+        #     data = {"message": "バーコードが正常に読み込めませんでした"}
     
     if not transmit_code == 0 :
         requests.post(
@@ -373,11 +387,13 @@ def transmit(transmit_code):
         )
 
 
+th = threading.Thread(target=barcode_read, daemon=True)
+th.start()
+
 while True : #メイン処理
     Arduino_receive()
     moisture_judgement()
     temperature_judgement()
-    salt_calculation()
     display()
     LED_flash()
     salt_reset()
