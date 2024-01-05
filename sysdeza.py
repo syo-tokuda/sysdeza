@@ -182,6 +182,7 @@ def salt_calculation(salt):
 def display():
     #ディスプレイに現在の水分量moisture_dataと塩分量salt_content，塩分基準量（35g）からsalt_contentを引いた残り投入可能な塩分量を表示する。
     i2c.write_byte_data(LCD_addr, 0x00, 0x01)
+    print("LCD")
     message = "ｽｲﾌﾞﾝ" + str(moisture_data) + "%"
     mojilist=[]
     for moji in message:
