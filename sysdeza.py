@@ -21,15 +21,14 @@ transmit_time = time.time()                                                     
 automatic = False            #自動攪拌機能がONかOFFかを保存する変数。初期値は’偽’
 
 Arduino_connect = False      #Arduinoと通信できたかを保存する変数。初期値は’偽’。
-before_Arduino_connect = False                                                  #Arduino_connectの前回の状態を保存する変数。初期値は’偽’。
+before_Arduino_connect = True                                                    #Arduino_connectの前回の状態を保存する変数。初期値は’真’。
 moisture_connect = False     #土壌水分センサの値が読めたかを保存する変数。初期値は’偽’。
 before_moisture_connect = False                                                  #moisture_connectの前回の状態を保存する変数。初期値は’偽’。
 temperature_connect = False  #土壌温度センサの値が読めたかを保存する変数。初期値は’偽’。
-before_temperature_connect = False                                                  #temperature_connectの前回の状態を保存する変数。初期値は’偽’。
+before_temperature_connect = False                                               #temperature_connectの前回の状態を保存する変数。初期値は’偽’。
 barcode_connect = False      #バーコードリーダーと通信できたかを保存する変数。初期値は’偽’。
-before_barcode_connect = False                                                  #barcode_connectの前回の状態を保存する変数。初期値は’偽’。
+before_barcode_connect = True                                                    #barcode_connectの前回の状態を保存する変数。初期値は’真’。
 barcode_collation = True     #バーコードリーダーで読み取ったコードがデータベースにあるかを保存する変数。初期値は’真’。
-# barcode_error = True                                                            #バーコードの読み取りエラーを保存する変数。初期値は’真’。
 
 start_button = 14 #変数追加　ピン番号は変更要！
 stop_button = 15
@@ -440,3 +439,4 @@ try :
         error_check()
 except :
     print("ERROR")
+    
