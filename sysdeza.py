@@ -42,8 +42,14 @@ direction = 7
 step = 8
 LCD_addr = 0x3e
 Arduino_addr = 0x04
+barcode_event = '/dev/input/event4'
+barcode_name = "HID 040b:6543"
 
-device = evdev.InputDevice('/dev/input/event4') #バーコードリーダー
+try :
+    device = evdev.InputDevice(barcode_event) #バーコードリーダー
+    barcode_connect = True
+except :
+    barcode_connect = False
 barcode = [0,0,0,0,0,0,0,0,0,0,0,0,0]
 barcode_id = 0
 
@@ -63,14 +69,23 @@ GPIO.setup(direction, GPIO.OUT)
 GPIO.setup(step, GPIO.OUT)
 
 i2c.write_byte_data(LCD_addr, 0x00, 0x38)
+time.sleep(0.01)
 i2c.write_byte_data(LCD_addr, 0x00, 0x39)
+time.sleep(0.01)
 i2c.write_byte_data(LCD_addr, 0x00, 0x14)
+time.sleep(0.01)
 i2c.write_byte_data(LCD_addr, 0x00, 0x73)
+time.sleep(0.01)
 i2c.write_byte_data(LCD_addr, 0x00, 0x56)
+time.sleep(0.01)
 i2c.write_byte_data(LCD_addr, 0x00, 0x6c)
+time.sleep(0.01)
 i2c.write_byte_data(LCD_addr, 0x00, 0x38)
+time.sleep(0.01)
 i2c.write_byte_data(LCD_addr, 0x00, 0x01)
+time.sleep(0.01)
 i2c.write_byte_data(LCD_addr, 0x00, 0x0f)
+time.sleep(0.01)
 
 def Arduino_receive():
     #Arduinoと通信をして土壌水分センサと土壌温度センサの値，それぞれのセンサの値が読めたかどうかのデータを受け取る。Raspberry PiとArduinoの通信にはI2Cを用いる。土壌水分センサの値をmoisture_data変数に，土壌温度センサの値をtemperature_data変数に保存する。土壌水分センサの値が読めればmoisture_connect変数へ’真’を，読めなければ’偽’を代入する。土壌温度センサの値が読めればtemperature_connect変数へ’真’を，読めなければ’偽’を代入する。Arduinoと通信できればArduino_connect変数へ’真’を，できなければ’偽’を代入する。
@@ -122,56 +137,75 @@ def temperature_judgement ():
     elif(temperature_judge_2 == 1 and temperature_data <= 35):
         temperature_judge_2 = 2
 
+def barcode_check():
+    global barcode_connect
+    global device
+    try :
+        device = evdev.InputDevice(barcode_event)
+    except :
+        device = evdev.InputDevice('/dev/input/event0')
+    if(device.name == barcode_name):
+        barcode_connect = True
+    else :
+        barcode_connect = False
+        
 
 def barcode_read():
     #バーコードリーダーでバーコードを読み取り，読み取れた場合はCSVファイルのデータベース内のコードとの照合を行う。そして商品の塩分量を確認してsalt_calculation関数を実行する。バーコードリーダーと通信できていればbarcode_connect変数へ’真’を，できていなければ’偽’を代入する。バーコードリーダーで読み取ったコードがCSVファイルのデータベースにある場合はbarcode_collation変数へ’真’を，できていなければ’偽’を代入する。
-    global barcode_connect
     global barcode_collation
-    barcode_connect = True
     global barcode
     global barcode_id
-    for event in device.async_read_loop():
-        if event.type == evdev.ecodes.EV_KEY and event.value == 0:
-            if event.code == 11 :
-                barcode[barcode_id] = 0
-            if event.code == 2 :
-                barcode[barcode_id] = 1
-            if event.code == 3 :
-                barcode[barcode_id] = 2
-            if event.code == 4 :
-                barcode[barcode_id] = 3
-            if event.code == 5 :
-                barcode[barcode_id] = 4
-            if event.code == 6 :
-                barcode[barcode_id] = 5
-            if event.code == 7 :
-                barcode[barcode_id] = 6
-            if event.code == 8 :
-                barcode[barcode_id] = 7
-            if event.code == 9 :
-                barcode[barcode_id] = 8
-            if event.code == 10 :
-                barcode[barcode_id] = 9
-            barcode_id += 1
-            if event.code == 28 :
-                barcode_sum = 0
-                for i in range(13) :
-                    barcode_sum += barcode[i]*10**(12-i)
-                barcode_id = 0
-                salt_data = 0
-                with open('barcode.csv','r') as f :
-                    reader = csv.reader(f)
-                    for csv_list in reader :
-                        if int(barcode_sum) == int(csv_list[0])  :
-                            salt_data = int(csv_list[1])
-                            salt_calculation(salt_data)
-                    if salt_data <= 0 :
-                        barcode_collation = False
+    global barcode_connect
+    
+    while True :
+        print("barcode_connect: " +  str(barcode_connect))
+        if(barcode_connect == True) :
+            try :
+                for event in device.async_read_loop():
+                    if event.type == evdev.ecodes.EV_KEY and event.value == 0:
+                        if event.code == 11 :
+                            barcode[barcode_id] = 0
+                        if event.code == 2 :
+                            barcode[barcode_id] = 1
+                        if event.code == 3 :
+                            barcode[barcode_id] = 2
+                        if event.code == 4 :
+                            barcode[barcode_id] = 3
+                        if event.code == 5 :
+                            barcode[barcode_id] = 4
+                        if event.code == 6 :
+                            barcode[barcode_id] = 5
+                        if event.code == 7 :
+                            barcode[barcode_id] = 6
+                        if event.code == 8 :
+                            barcode[barcode_id] = 7
+                        if event.code == 9 :
+                            barcode[barcode_id] = 8
+                        if event.code == 10 :
+                            barcode[barcode_id] = 9
+                        barcode_id += 1
+                        if event.code == 28 :
+                            print("                   barcode")
+                            barcode_sum = 0
+                            for i in range(13) :
+                                barcode_sum += barcode[i]*10**(12-i)
+                            barcode_id = 0
+                            salt_data = 0
+                            with open('/home/tokuda/ダウンロード/barcode.csv','r') as f :
+                                reader = csv.reader(f)
+                                for csv_list in reader :
+                                    if int(barcode_sum) == int(csv_list[0])  :
+                                        salt_data = int(csv_list[1])
+                                        salt_calculation(salt_data)
+                                if salt_data <= 0 :
+                                    barcode_collation = False
+            except :
+                barcode_connect = False     
 
 
 def salt_calculation(salt):
     #barcode_read関数で読み取った商品の塩分量をsalt_content変数に加算する。
-    # int salt：barcode_read関数で読み取った商品の塩分量
+    # int salt_data：barcode_read関数で読み取った商品の塩分量
     global salt_content
     if salt > 0 :
         salt_content = salt_content + salt
@@ -182,7 +216,7 @@ def salt_calculation(salt):
 def display():
     #ディスプレイに現在の水分量moisture_dataと塩分量salt_content，塩分基準量（35g）からsalt_contentを引いた残り投入可能な塩分量を表示する。
     i2c.write_byte_data(LCD_addr, 0x00, 0x01)
-    print("LCD")
+    time.sleep(0.001)
     message = "ｽｲﾌﾞﾝ" + str(moisture_data) + "%"
     mojilist=[]
     for moji in message:
@@ -377,15 +411,16 @@ def transmit(transmit_code):
         data = {"message": "バーコードリーダーと通信ができません"}
     elif transmit_code == 9 :
         data = {"message": "読み取ったバーコードがデータベースにありません"}
-#     elif transmit_code == 10 :
-#         data = {"message": "バーコードが正常に読み込めませんでした"}
     
     if not transmit_code == 0 :
-        requests.post(
-            "https://notify-api.line.me/api/notify",
-            headers=headers,
-            data=data,
-        )
+        try :
+            requests.post(
+                "https://notify-api.line.me/api/notify",
+                headers=headers,
+                data=data,
+            )
+        except :
+            print("network error")
 
 
 th = threading.Thread(target=barcode_read, daemon=True)
@@ -396,6 +431,7 @@ try :
         Arduino_receive()
         moisture_judgement()
         temperature_judgement()
+        barcode_check()
         display()
         LED_flash()
         salt_reset()
