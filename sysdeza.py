@@ -43,6 +43,7 @@ LCD_addr = 0x3e
 Arduino_addr = 0x04
 barcode_event = '/dev/input/event4'
 barcode_name = "HID 040b:6543"
+csv_addr = '/home/tokuda/ダウンロード/barcode.csv'
 
 try :
     device = evdev.InputDevice(barcode_event) #バーコードリーダー
@@ -190,7 +191,7 @@ def barcode_read():
                                 barcode_sum += barcode[i]*10**(12-i)
                             barcode_id = 0
                             salt_data = 0
-                            with open('/home/tokuda/ダウンロード/barcode.csv','r') as f :
+                            with open(csv_addr,'r') as f :
                                 reader = csv.reader(f)
                                 for csv_list in reader :
                                     if int(barcode_sum) == int(csv_list[0])  :
