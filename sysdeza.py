@@ -23,9 +23,9 @@ automatic = False            #自動攪拌機能がONかOFFかを保存する変
 Arduino_connect = False      #Arduinoと通信できたかを保存する変数。初期値は’偽’。
 before_Arduino_connect = True                                                    #Arduino_connectの前回の状態を保存する変数。初期値は’真’。
 moisture_connect = False     #土壌水分センサの値が読めたかを保存する変数。初期値は’偽’。
-before_moisture_connect = False                                                  #moisture_connectの前回の状態を保存する変数。初期値は’偽’。
+before_moisture_connect = True                                                  #moisture_connectの前回の状態を保存する変数。初期値は’真’。
 temperature_connect = False  #土壌温度センサの値が読めたかを保存する変数。初期値は’偽’。
-before_temperature_connect = False                                               #temperature_connectの前回の状態を保存する変数。初期値は’偽’。
+before_temperature_connect = True                                               #temperature_connectの前回の状態を保存する変数。初期値は’真’。
 barcode_connect = False      #バーコードリーダーと通信できたかを保存する変数。初期値は’偽’。
 before_barcode_connect = True                                                    #barcode_connectの前回の状態を保存する変数。初期値は’真’。
 barcode_collation = True     #バーコードリーダーで読み取ったコードがデータベースにあるかを保存する変数。初期値は’真’。
@@ -361,10 +361,10 @@ def error_check():
     if(Arduino_connect == False and before_Arduino_connect == True):
         transmit(5)
     before_Arduino_connect = Arduino_connect
-    if(moisture_connect == False and before_moisture_connect == True):
+    if(moisture_connect == False and before_moisture_connect == True and Arduino_connect == True):
         transmit(6)
     before_moisture_connect = moisture_connect
-    if(temperature_connect == False and before_temperature_connect == True):
+    if(temperature_connect == False and before_temperature_connect == True and Arduino_connect == True):
         transmit(7)
     before_temperature_connect = temperature_connect
     if(barcode_connect == False and before_barcode_connect == True):
@@ -439,4 +439,3 @@ try :
         error_check()
 except :
     print("ERROR")
-    
