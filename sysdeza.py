@@ -379,15 +379,6 @@ def error_check():
             time.sleep(0.3)
             GPIO.output(salt_LED, GPIO.LOW)  #緑消灯
             time.sleep(0.3)
-#     global barcode_error
-#     if(barcode_error == False):
-#         transmit(10)
-#         barcode_error = True
-#         for i in range(5):
-#             GPIO.output(salt_LED, GPIO.HIGH)	#緑消灯
-#             time.sleep(0.5)
-#             GPIO.output(salt_LED, GPIO.LOW)	#緑消灯
-#             time.sleep(0.5)
 
 
 def transmit(transmit_code):
