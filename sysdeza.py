@@ -31,19 +31,19 @@ before_barcode_connect = True                                                   
 barcode_collation = True     #バーコードリーダーで読み取ったコードがデータベースにあるかを保存する変数。初期値は’真’。
 
 start_button = 14 #変数追加　ピン番号は変更要！
-stop_button = 15
-agitation_button = 22
-salt_reset_button = 23
-salt_LED = 24
-low_moisture_LED = 25
-high_moisture_LED = 26
-direction = 7 
-step = 8
+stop_button = 25
+agitation_button = 23
+salt_reset_button = 20
+salt_LED = 15
+low_moisture_LED = 14
+high_moisture_LED = 21
+direction = 22
+step = 27
 LCD_addr = 0x3e
 Arduino_addr = 0x04
 barcode_event = '/dev/input/event4'
 barcode_name = "HID 040b:6543"
-csv_addr = '/home/tokuda/ダウンロード/barcode.csv'
+csv_addr = '/home/group4/ドキュメント/barcode.csv'
 
 try :
     device = evdev.InputDevice(barcode_event) #バーコードリーダー
