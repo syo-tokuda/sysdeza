@@ -30,7 +30,7 @@ barcode_connect = False      #バーコードリーダーと通信できたか�
 before_barcode_connect = True                                                    #barcode_connectの前回の状態を保存する変数。初期値は’真’。
 barcode_collation = True     #バーコードリーダーで読み取ったコードがデータベースにあるかを保存する変数。初期値は’真’。
 
-start_button = 14 #変数追加　ピン番号は変更要！
+start_button = 12 #変数追加　ピン番号は変更要！
 stop_button = 25
 agitation_button = 23
 salt_reset_button = 20
