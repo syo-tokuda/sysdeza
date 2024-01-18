@@ -12,15 +12,17 @@ import RPi.GPIO as GPIO
 moisture_data = 0             #土壌水分センサの値を保存する変数。初期値は’0’。
 before_moisture_judge = 0														#追加！！！！！！！！土壌水分センサの前回の値を保存する変数。初期値は’0’。
 temperature_data = 0          #土壌温度センサの値を保存する変数。初期値は’0’。
-salt_content = 0              #コンポスト内の塩分量を保存する変数。初期値は’0’。
+salt_content :float = 0              #コンポスト内の塩分量を保存する変数。初期値は’0’。
 moisture_judge = 0            #土壌水分センサの値から判断した，土の状態を保存する変数。初期値は’0’。
 temperature_judge_1 = 0       #土壌温度センサの値から判断した，土の状態を保存する変数。土の温度が60度以上となっている状態が7日間続いたかを確認する。初期値は’0’。
 temperature_judge_2 = 0       #土壌温度センサの値から判断した，土の状態を保存する変数。土の温度が65度に達した後外気温付近まで低下したかを確認する。初期値は’0’。
 transmit_time = time.time()                                                     #水分の通知送信時間を保存する変数。初期値は’0’。
+seven_day_start = 0
 
 automatic = False            #自動攪拌機能がONかOFFかを保存する変数。初期値は’偽’
 
 Arduino_connect = False      #Arduinoと通信できたかを保存する変数。初期値は’偽’。
+Arduino_check = 0
 before_Arduino_connect = True                                                    #Arduino_connectの前回の状態を保存する変数。初期値は’真’。
 moisture_connect = False     #土壌水分センサの値が読めたかを保存する変数。初期値は’偽’。
 before_moisture_connect = True                                                   #moisture_connectの前回の状態を保存する変数。初期値は’真’。
@@ -34,14 +36,14 @@ start_button = 12 #変数追加　ピン番号は変更要！
 stop_button = 25
 agitation_button = 23
 salt_reset_button = 20
-salt_LED = 15
+salt_LED = 26
 low_moisture_LED = 14
-high_moisture_LED = 21
+high_moisture_LED = 15
 direction = 22
 step = 27
 LCD_addr = 0x3e
 Arduino_addr = 0x04
-barcode_event = '/dev/input/event4'
+barcode_event = '/dev/input/event1'
 barcode_name = "HID 040b:6543"
 csv_addr = '/home/group4/ドキュメント/barcode.csv'
 
@@ -94,22 +96,30 @@ def Arduino_receive():
     global moisture_connect
     global temperature_connect
     global Arduino_connect
+    global Arduino_check
     try:
         receive_data = i2c.read_word_data(Arduino_addr, 0)
-        Arduino_connect = False
+        Arduino_connect = True
+        Arduino_check = 0
         moisture_data = receive_data & 0x7F
-        if bin(receive_data >> 7) & 0x01 == 1 :
+        if (receive_data >> 7) & 0x01 == 1 :
             moisture_connect = True
         else :
             moisture_connect = False
 
-        temperature_data = bin(receive_data >> 8) & 0x7F
-        if bin(receive_data >> 15) & 0x01 == 1 :
+        temperature_data = (receive_data >> 8) & 0x7F
+        if (receive_data >> 15) & 0x01 == 1 :
             temperature_connect = True
         else :
             temperature_connect = False
+        
+        print("moisture:" + str(moisture_data) + "  temperature:" + str(temperature_data))
     except:
-        Arduino_connect = True
+        if Arduino_check == 0 :
+            Arduino_check = 1
+        elif Arduino_check == 1 :
+            Arduino_connect = False
+        print("Arduino ERROE")
 
 
 def moisture_judgement():
@@ -127,15 +137,19 @@ def temperature_judgement ():
     #temperature _data変数の値から堆肥の完成度を判断してtemperature_judge_1変数とtemperature_judge_2変数の値を変更する。temperature_judge_1は，作り始めは’0’，温度が60度以上になれば’1’，値が’1’の状態が7日続けば’2’とする。temperature_judge_2は，温度が65度以上になれば’1’，値が’1’になった後に温度が外気温付近（35度以下）まで低下した場合は’2’とする。
     global temperature_judge_1
     global temperature_judge_2
-    if(temperature_data >= 60 and temperature_judge_1 == 0):
-        temperature_judge_1 = 1
-        seven_day_start = time.time()
-    elif(temperature_judge_1 == 1 and time.time() - seven_day_start >= 604800):
-        temperature_judge_1 = 2
-    if(temperature_data >= 65 and temperature_judge_2 == 0):
-        temperature_judge_2 = 1
-    elif(temperature_judge_2 == 1 and temperature_data <= 35):
-        temperature_judge_2 = 2
+    global seven_day_start
+    try :
+        if(temperature_data >= 40 and temperature_judge_1 == 0):
+            temperature_judge_1 = 1
+            seven_day_start = time.time()
+        elif(temperature_judge_1 == 1 and time.time() - seven_day_start >= 10):
+            temperature_judge_1 = 2
+        if(temperature_data > 42 and temperature_judge_2 == 0):
+            temperature_judge_2 = 1
+        elif(temperature_judge_2 == 1 and temperature_data <= 42):
+            temperature_judge_2 = 2
+    except :
+        print("temperature ERROE")
 
 def barcode_check():
     global barcode_connect
@@ -158,7 +172,6 @@ def barcode_read():
     global barcode_connect
     
     while True :
-        print("barcode_connect: " +  str(barcode_connect))
         if(barcode_connect == True) :
             try :
                 for event in device.async_read_loop():
@@ -195,7 +208,7 @@ def barcode_read():
                                 reader = csv.reader(f)
                                 for csv_list in reader :
                                     if int(barcode_sum) == int(csv_list[0])  :
-                                        salt_data = int(csv_list[1])
+                                        salt_data = float(csv_list[1])
                                         salt_calculation(salt_data)
                                 if salt_data <= 0 :
                                     barcode_collation = False
@@ -215,37 +228,45 @@ def salt_calculation(salt):
 
 def display():
     #ディスプレイに現在の水分量moisture_dataと塩分量salt_content，塩分基準量（35g）からsalt_contentを引いた残り投入可能な塩分量を表示する。
-    i2c.write_byte_data(LCD_addr, 0x00, 0x01)
-    time.sleep(0.001)
-    message = "ｽｲﾌﾞﾝ" + str(moisture_data) + "%"
-    mojilist=[]
-    for moji in message:
-        if ord(moji) > 32768 :
-            mojilist.append(ord(moji) + 0x40)
+    try :
+        i2c.write_byte_data(LCD_addr, 0x00, 0x01)
+        time.sleep(0.001)
+        if automatic == 1 :
+            message = "ｽｲﾌﾞﾝ" + str(moisture_data) + "%" + "  AUTO"
         else :
-            mojilist.append(ord(moji))
-    i2c.write_i2c_block_data(LCD_addr, 0x40, mojilist)
-
-    i2c.write_byte_data(LCD_addr, 0x00, 0x40+0x80)
-    message = "ｴﾝﾌﾞﾝ" + str(math.floor(salt_content)) + "g ﾉｺﾘ" + str(math.floor(35-salt_content)) + "g"
-    mojilist=[]
-    for moji in message:
-        if ord(moji) > 32768 :
-            mojilist.append(ord(moji) + 0x40)
-        else :
-            mojilist.append(ord(moji))
-    i2c.write_i2c_block_data(LCD_addr, 0x40, mojilist)
-    time.sleep(0.01)
+            message = "ｽｲﾌﾞﾝ" + str(moisture_data) + "%"
+        mojilist=[]
+        for moji in message:
+            if ord(moji) > 32768 :
+                mojilist.append(ord(moji) + 0x40)
+            else :
+                mojilist.append(ord(moji))
+        i2c.write_i2c_block_data(LCD_addr, 0x40, mojilist)
+     
+        i2c.write_byte_data(LCD_addr, 0x00, 0x40+0x80)
+        message = "ｴﾝﾌﾞﾝ" + str(math.floor(salt_content)) + "g ﾉｺﾘ" + str(35-math.floor(salt_content)) + "g"
+        mojilist=[]
+        for moji in message:
+            if ord(moji) > 32768 :
+                mojilist.append(ord(moji) + 0x40)
+            else :
+                mojilist.append(ord(moji))
+        i2c.write_i2c_block_data(LCD_addr, 0x40, mojilist)
+        time.sleep(0.01)
+    except :
+        print("display ERROR")
 
 
 def LED_flash():
     #moisture_judgeの値から適した水分管理用LEDを点灯させる。また，salt_contentが塩分基準量（35g）を超えているか判断し，超えていれば塩分管理用LEDを点灯させる。
-    if(moisture_judge < 45):
+    if(moisture_judge == 0):
         GPIO.output(low_moisture_LED, GPIO.HIGH)	#赤点灯
-    elif(moisture_judge >= 45 and moisture_judge < 55):
+        GPIO.output(high_moisture_LED, GPIO.LOW)	#白消灯
+    elif(moisture_judge == 1):
         GPIO.output(low_moisture_LED, GPIO.LOW)	#赤消灯
         GPIO.output(high_moisture_LED, GPIO.LOW)	#白消灯
-    elif(moisture_judge >= 55):
+    else:
+        GPIO.output(low_moisture_LED, GPIO.LOW)	#赤消灯
         GPIO.output(high_moisture_LED, GPIO.HIGH)	#白点灯
     if(salt_content >= 35):
         GPIO.output(salt_LED, GPIO.HIGH)	#緑点灯
@@ -305,8 +326,9 @@ def time_check():
 
 def agitation():
     #始めにモータを正回転させる。モータを回転させる際に加えたパルス数を計算しておき，コンポストの1周するパルス数まで加算された場合，次は逆方向にモータを回転させる。そして元の位置まで戻ると，再度モータを正回転させる。これを繰り返し，3回目に元の位置に戻ってきた際にモータを停止させる。
-    step_count = 400 
-    delay = .001
+    print("agitation")
+    step_count = 320 
+    delay = .017
     for i in range(3) :
         GPIO.output(direction, 1)
         for x in range(step_count):
@@ -329,7 +351,8 @@ def transmit_judgement():
     #利用者の端末に通知をするかどうかを判断し，通知する場合はその内容を決定してtransmit関数で通知する。int moisture_judge変数を確認して，前回と値が変わっていれば通知をする。また，通知後3時間経過しても値が’0‘または’2’の場合は同様の通知をする。加えてtemperature_judge_1変数とtemperature_judge_2変数がともに’2’になった際も通知をする。
     global transmit_time
     global before_moisture_judge
-    if(not(moisture_judge == before_moisture_judge)):
+    global temperature_judge_2
+    if(not(moisture_judge == before_moisture_judge)) and moisture_connect == True:
         if(moisture_judge == 0):
             transmit(1)
         elif(moisture_judge == 1):
@@ -348,8 +371,9 @@ def transmit_judgement():
             transmit(2)
             transmit_time = time.time()
 
-    if(temperature_judge_1 == 2 and temperature_judge_2 ==2):
+    if(temperature_judge_1 == 2 and temperature_judge_2 ==2 and temperature_connect == True):
         transmit(4)
+        temperature_judge_2 = 3
 
 
 def error_check():
@@ -359,6 +383,7 @@ def error_check():
     global before_temperature_connect
     global before_barcode_connect
     global barcode_collation
+        
     if(Arduino_connect == False and before_Arduino_connect == True):
         transmit(5)
     before_Arduino_connect = Arduino_connect
@@ -416,9 +441,9 @@ def transmit(transmit_code):
 
 th = threading.Thread(target=barcode_read, daemon=True)
 th.start()
-
-try :
-    while True : #メイン処理
+time.sleep(13)
+while True : 
+    try :
         Arduino_receive()
         moisture_judgement()
         temperature_judgement()
@@ -429,5 +454,5 @@ try :
         mode_button_check()
         transmit_judgement()
         error_check()
-except :
-    print("ERROR")
+    except :
+        print("ERROR")
