@@ -142,7 +142,7 @@ def temperature_judgement ():
         if(temperature_data >= 40 and temperature_judge_1 == 0):
             temperature_judge_1 = 1
             seven_day_start = time.time()
-        elif(temperature_judge_1 == 1 and time.time() - seven_day_start >= 10):
+        elif(temperature_judge_1 == 1 and time.time() - seven_day_start >= 604800):
             temperature_judge_1 = 2
         if(temperature_data > 42 and temperature_judge_2 == 0):
             temperature_judge_2 = 1
